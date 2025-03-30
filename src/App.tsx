@@ -1,25 +1,9 @@
-import { Suspense, lazy, ErrorBoundary } from "react";
+import { Suspense, lazy } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HashRouter, Routes, Route } from "react-router-dom";
-
-// Lazy-load all route components
-const Index = lazy(() => import("./pages/Index"));
-const Team = lazy(() => import("./pages/Team"));
-const News = lazy(() => import("./pages/News"));
-const Matches = lazy(() => import("./pages/Matches"));
-const Tournaments = lazy(() => import("./pages/Tournaments"));
-const Media = lazy(() => import("./pages/Media"));
-const Contacts = lazy(() => import("./pages/Contacts"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-
-// Admin routes
-const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
-const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
-const PlayersManagement = lazy(() => import("./pages/admin/PlayersManagement"));
-const CoachesManagement = lazy(() => import("./pages/admin/CoachesManagement"));
-const TeamsManagement = lazy(() => import("./pages/admin/TeamsManagement"));
 
 // Fallback loading component
 const PageLoading = () => (
@@ -53,37 +37,73 @@ const lazyLoad = (Component: React.LazyExoticComponent<any>) => (
   </ErrorBoundary>
 );
 
+// Lazy-load all route components with retry
+const lazyLoadWithRetry = (importFn: () => Promise<any>, retries = 3) => {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      if (retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return lazyLoadWithRetry(importFn, retries - 1);
+      }
+      throw error;
+    }
+  });
+};
+
+// Lazy-load all route components
+const Index = lazyLoadWithRetry(() => import("./pages/Index"));
+const Team = lazyLoadWithRetry(() => import("./pages/Team"));
+const News = lazyLoadWithRetry(() => import("./pages/News"));
+const Matches = lazyLoadWithRetry(() => import("./pages/Matches"));
+const Tournaments = lazyLoadWithRetry(() => import("./pages/Tournaments"));
+const Media = lazyLoadWithRetry(() => import("./pages/Media"));
+const Contacts = lazyLoadWithRetry(() => import("./pages/Contacts"));
+const NotFound = lazyLoadWithRetry(() => import("./pages/NotFound"));
+
+// Admin routes
+const AdminDashboard = lazyLoadWithRetry(() => import("./pages/admin/Dashboard"));
+const AdminHome = lazyLoadWithRetry(() => import("./pages/admin/AdminHome"));
+const PlayersManagement = lazyLoadWithRetry(() => import("./pages/admin/PlayersManagement"));
+const CoachesManagement = lazyLoadWithRetry(() => import("./pages/admin/CoachesManagement"));
+const TeamsManagement = lazyLoadWithRetry(() => import("./pages/admin/TeamsManagement"));
+
 // Always use HashRouter for compatibility with GitHub Pages
 const App = () => {
   return (
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <HashRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={lazyLoad(Index)} />
-          <Route path="/team" element={lazyLoad(Team)} />
-          <Route path="/news" element={lazyLoad(News)} />
-          <Route path="/matches" element={lazyLoad(Matches)} />
-          <Route path="/tournaments" element={lazyLoad(Tournaments)} />
-          <Route path="/tournaments/:id" element={lazyLoad(Tournaments)} />
-          <Route path="/media" element={lazyLoad(Media)} />
-          <Route path="/contacts" element={lazyLoad(Contacts)} />
-          
-          {/* Admin routes */}
-          <Route path="/admin" element={lazyLoad(AdminDashboard)}>
-            <Route index element={lazyLoad(AdminHome)} />
-            <Route path="players" element={lazyLoad(PlayersManagement)} />
-            <Route path="coaches" element={lazyLoad(CoachesManagement)} />
-            <Route path="teams" element={lazyLoad(TeamsManagement)} />
-          </Route>
-          
-          {/* 404 */}
-          <Route path="*" element={lazyLoad(NotFound)} />
-        </Routes>
-      </HashRouter>
-    </TooltipProvider>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <Suspense fallback={<PageLoading />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={lazyLoad(Index)} />
+              <Route path="/team" element={lazyLoad(Team)} />
+              <Route path="/news" element={lazyLoad(News)} />
+              <Route path="/matches" element={lazyLoad(Matches)} />
+              <Route path="/tournaments" element={lazyLoad(Tournaments)} />
+              <Route path="/tournaments/:id" element={lazyLoad(Tournaments)} />
+              <Route path="/media" element={lazyLoad(Media)} />
+              <Route path="/contacts" element={lazyLoad(Contacts)} />
+              
+              {/* Admin routes */}
+              <Route path="/admin" element={lazyLoad(AdminDashboard)}>
+                <Route index element={lazyLoad(AdminHome)} />
+                <Route path="players" element={lazyLoad(PlayersManagement)} />
+                <Route path="coaches" element={lazyLoad(CoachesManagement)} />
+                <Route path="teams" element={lazyLoad(TeamsManagement)} />
+              </Route>
+              
+              {/* 404 */}
+              <Route path="*" element={lazyLoad(NotFound)} />
+            </Routes>
+          </Suspense>
+        </HashRouter>
+      </TooltipProvider>
+    </ErrorBoundary>
   );
 };
 
